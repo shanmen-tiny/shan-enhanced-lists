@@ -11,7 +11,7 @@ describe('browser.PluginTest', () => {
 
   it('test click on button', () => {
     const editor = hook.editor();
-    TinyUiActions.clickOnToolbar(editor, 'button:contains("shan-enhanced-lists button")');
-    TinyAssertions.assertContent(editor, '<p>content added from shan-enhanced-lists</p>');
+    TinyUiActions.clickOnToolbar(editor, 'button:contains(Bold)');
+    TinyAssertions.assertContent(editor, '<p>content added from enhanced-lists</p>');
   });
 });
