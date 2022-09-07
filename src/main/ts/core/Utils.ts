@@ -1,14 +1,10 @@
 import { PredicateFilter, SugarElement } from "@ephox/sugar"
 
-const getParents = (selectedElement: SugarElement): SugarElement[] => {
+const isNestedList = (selectedElement: SugarElement): boolean => {
   return PredicateFilter.ancestors(
     selectedElement,
     isListNode
-  )
-};
-
-const isNested = (selectedElement: SugarElement): boolean => {
-  return getParents(selectedElement).length > 1;
+  ).length > 1;
 };
 
 const matchNodeNames = (regex: RegExp) =>
@@ -20,7 +16,7 @@ const isListNode = matchNodeNames(/^(OL|UL|DL)$/);
 const isListItemNode = matchNodeNames(/^(LI)$/);
 
 export {
-  isNested,
+  isNestedList,
   isListNode,
   isListItemNode
 };

@@ -5,9 +5,9 @@ import { PublicDialog } from '@ephox/bridge';
 import { PredicateFilter, SugarElement, Traverse } from "@ephox/sugar";
 import { EnhancedListDialogData } from "./DialogTypes";
 
-const options: string[] = ["circle", "disc", "square", "lower-alpha", "lower-greek", "lower-roman", "upper-alpha", "upper-roman"];
+const styleOptions: string[] = ["circle", "disc", "square", "lower-alpha", "lower-greek", "lower-roman", "upper-alpha", "upper-roman"];
 
-const getListOptions = (options: string[]) => {
+const getStyleOptions = (options: string[]) => {
   return Arr.map(options, (o) => ({
     text: o,
     value: o
@@ -16,29 +16,29 @@ const getListOptions = (options: string[]) => {
 
 const items: PublicDialog.BodyComponentSpec[] = [
   {
-    type: 'selectbox',
-    name: 'style',
-    label: 'List style',
-    items: getListOptions(options)
+    type: 'listbox',
+    name: 'listStyle',
+    label: 'List Style',
+    items: getStyleOptions(styleOptions)
   },
   {
     type: 'input',
     name: 'paddingLeft',
-    label: 'Left Padding',
+    label: 'Padding Left',
     inputMode: 'numeric'
   },
 ];
 
 const getPanelItems = (selElement: SugarElement<Node>): PublicDialog.BodyComponentSpec[] => {
-  if (Utils.isNested(selElement)) {
+  if (Utils.isNestedList(selElement)) {
     return items.concat({
-      type: 'selectbox',
-      name: 'appliedTo',
-      label: 'Styles to applied to',
+      type: 'listbox',
+      name: 'itemsToApplyStyle',
+      label: 'Styles to Applied to',
       items: [
-        { text: 'The Selected List', value: 'selectedList' },
-        { text: 'The Selected List + parent', value: 'selectedListAndParent' },
-        { text: 'The Selected List + children', value: 'selectedListAndChildren' },
+        { text: 'The selected list', value: 'selectedList' },
+        { text: 'The selected list + all parent lists', value: 'selectedListAndParent' },
+        { text: 'The selected list + all children lists', value: 'selectedListAndChildren' },
         { text: 'Current tree', value: 'currentTree' },
       ]
     });
@@ -73,21 +73,24 @@ const nestedListDialog = (editor: Editor): PublicDialog.DialogSpec<EnhancedListD
       const data = api.getData();
 
       if (Utils.isListItemNode(selectedElement) || Utils.isListNode(selectedElement)) {
-        const elements = getElementsToApply(selectedElement, data['appliedTo']);
+        const elements = getElementsToApply(selectedElement, data.itemsToApplyStyle);
         editor.undoManager.transact(() => {
           Arr.each((elements), (x) => {
-            editor.dom.setStyle(x, 'padding-inline-start', `${data['paddingLeft']}px`);
-            editor.dom.setStyle(x, 'list-style', `${data['style']}`);
+            if ((/^(LI)$/).test(x.nodeName)) {
+              editor.dom.setStyle(x, 'padding-inline-start', `${data.paddingLeft}px`);
+            } else {
+              editor.dom.setStyle(x, 'list-style-type', `${data.listStyle}`);
+            }
           });
         });
       } else {
-        const style = data.style;
-        if (Arr.find(['circle', 'disc', 'square'], (x) => x === style).isSome()) {
-          editor.execCommand('InsertUnorderedList', false, { 'list-style-type': data['style'] })
+        const listStyle = data.listStyle;
+        if (Arr.find(['circle', 'disc', 'square'], (x) => x === listStyle).isSome()) {
+          editor.execCommand('InsertUnorderedList', false, { 'list-style-type': data.listStyle })
         } else {
-          editor.execCommand('InsertOrderedList', false, { 'list-style-type': data['style'] })
+          editor.execCommand('InsertOrderedList', false, { 'list-style-type': data.listStyle })
         }
-        editor.dom.setStyle(editor.selection.getNode(), 'padding-inline-start', data['paddingLeft'] + 'px');
+        editor.dom.setStyle(editor.selection.getNode(), 'padding-inline-start', data.paddingLeft + 'px');
       }
 
       api.close();
@@ -98,6 +101,7 @@ const nestedListDialog = (editor: Editor): PublicDialog.DialogSpec<EnhancedListD
 const getElementsToApply = (selElement: SugarElement, appliedTo: string): Node[] => {
   const parent = Traverse.parent(selElement).getOr(selElement);
   let elements = [parent];
+
   if (appliedTo === 'selectedListAndParent') {
     const parents = PredicateFilter.ancestors(parent, Utils.isListNode);
     elements = elements.concat(parents);
@@ -112,7 +116,15 @@ const getElementsToApply = (selElement: SugarElement, appliedTo: string): Node[]
     elements = elements.concat(children);
   }
 
-  return Arr.map(Arr.unique(elements), (x) => x.dom);
+  const childElements = getChildElements(elements);
+  elements = elements.concat(childElements)
+  return Arr.map(elements, (x) => x.dom);
+}
+
+const getChildElements = (elements: SugarElement<Node>[]): SugarElement<Node>[] => {
+  return Arr.flatten(
+    Arr.map(elements, (x) => PredicateFilter.children(x, Utils.isListItemNode))
+  );
 }
 
 const open = (editor: Editor): void => {

@@ -1,5 +1,5 @@
 export interface EnhancedListDialogData {
-  style: string;
+  listStyle: string;
   paddingLeft?: number;
-  appliedTo?: string;
+  itemsToApplyStyle?: string;
 }
