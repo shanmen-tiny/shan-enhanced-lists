@@ -2,10 +2,15 @@ import { Arr } from "@ephox/katamari";
 import * as Utils from '../core/Utils';
 import { Editor } from "tinymce";
 import { PublicDialog } from '@ephox/bridge';
-import { PredicateFilter, SugarElement, Traverse } from "@ephox/sugar";
+import { PredicateFilter, SugarElement, SugarNode, Traverse } from "@ephox/sugar";
 import { EnhancedListDialogData } from "./DialogTypes";
 
 const styleOptions: string[] = ["circle", "disc", "square", "lower-alpha", "lower-greek", "lower-roman", "upper-alpha", "upper-roman"];
+
+interface StyleConfig {
+  includeParents: boolean,
+  includeChildren: boolean,
+}
 
 const getStyleOptions = (options: string[]) => {
   return Arr.map(options, (o) => ({
@@ -66,31 +71,29 @@ const nestedListDialog = (editor: Editor): PublicDialog.DialogSpec<EnhancedListD
         type: 'submit',
         name: 'save',
         text: 'Save',
-        primary: true
+        buttonType: 'primary',
       }
     ],
     onSubmit: (api) => {
       const data = api.getData();
 
       if (Utils.isListItemNode(selectedElement) || Utils.isListNode(selectedElement)) {
-        const elements = getElementsToApply(selectedElement, data.itemsToApplyStyle);
-        editor.undoManager.transact(() => {
+        const config = createStyleConfig(data.itemsToApplyStyle);
+        const elements = getElementsToApply(selectedElement, config);
+
+        // editor.undoManager.transact(() => {
           Arr.each((elements), (x) => {
-            if ((/^(LI)$/).test(x.nodeName)) {
+            if (SugarNode.isTag("li")(SugarElement.fromDom(x))) {
               editor.dom.setStyle(x, 'padding-inline-start', `${data.paddingLeft}px`);
             } else {
               editor.dom.setStyle(x, 'list-style-type', `${data.listStyle}`);
             }
           });
-        });
+        // });
       } else {
-        const listStyle = data.listStyle;
-        if (Arr.find(['circle', 'disc', 'square'], (x) => x === listStyle).isSome()) {
-          editor.execCommand('InsertUnorderedList', false, { 'list-style-type': data.listStyle })
-        } else {
-          editor.execCommand('InsertOrderedList', false, { 'list-style-type': data.listStyle })
-        }
-        editor.dom.setStyle(editor.selection.getNode(), 'padding-inline-start', data.paddingLeft + 'px');
+        const { paddingLeft, listStyle } = data;
+        insertList(editor, listStyle);
+        setPadding(editor, paddingLeft);
       }
 
       api.close();
@@ -98,33 +101,63 @@ const nestedListDialog = (editor: Editor): PublicDialog.DialogSpec<EnhancedListD
   }
 }
 
-const getElementsToApply = (selElement: SugarElement, appliedTo: string): Node[] => {
+const insertList = (editor: Editor, listStyle: string) => {
+  if (Arr.exists(['circle', 'disc', 'square'], (x) => x === listStyle)) {
+    editor.execCommand('InsertUnorderedList', false, { 'list-style-type': listStyle })
+  } else {
+    editor.execCommand('InsertOrderedList', false, { 'list-style-type': listStyle })
+  }
+}
+
+const setPadding = (editor: Editor, paddingLeft: number) => {
+  editor.dom.setStyle(editor.selection.getNode(), 'padding-inline-start', paddingLeft + 'px');
+}
+
+const createStyleConfig = (appliedTo: string) => {
+  let config = {
+    includeChildren: false,
+    includeParents: false,
+  }
+
+  if (appliedTo === 'selectedListAndParent' || appliedTo === 'currentTree') {
+    config = {
+      ...config,
+      includeParents: true
+    }
+  }
+
+  if (appliedTo === 'selectedListAndChildren' || appliedTo === 'currentTree') {
+    config = {
+      ...config,
+      includeChildren: true,
+    }
+  }
+
+  return config;
+}
+
+const getElementsToApply = (selElement: SugarElement, config: StyleConfig): Node[] => {
   const parent = Traverse.parent(selElement).getOr(selElement);
   let elements = [parent];
 
-  if (appliedTo === 'selectedListAndParent') {
+  if (config.includeParents) {
     const parents = PredicateFilter.ancestors(parent, Utils.isListNode);
     elements = elements.concat(parents);
-  } else if (appliedTo === 'selectedListAndChildren') {
-    const children = PredicateFilter.descendants(parent, Utils.isListNode);
-    elements = elements.concat(children);
-  } else if (appliedTo === 'currentTree') {
-    const children = PredicateFilter.descendants(parent, Utils.isListNode);
-    const parents = PredicateFilter.ancestors(parent, Utils.isListNode);
+  }
 
-    elements = elements.concat(parents);
+  if (config.includeChildren) {
+    const children = PredicateFilter.descendants(parent, Utils.isListNode);
     elements = elements.concat(children);
   }
 
   const childElements = getChildElements(elements);
   elements = elements.concat(childElements)
+
   return Arr.map(elements, (x) => x.dom);
 }
 
 const getChildElements = (elements: SugarElement<Node>[]): SugarElement<Node>[] => {
-  return Arr.flatten(
-    Arr.map(elements, (x) => PredicateFilter.children(x, Utils.isListItemNode))
-  );
+  return Arr.bind(elements, (x) => PredicateFilter.children(x, Utils.isListItemNode));
 }
 
 const open = (editor: Editor): void => {

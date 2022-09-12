@@ -1,19 +1,20 @@
-import { PredicateFilter, SugarElement } from "@ephox/sugar"
+import { Arr } from "@ephox/katamari";
+import { PredicateExists, SugarElement } from "@ephox/sugar"
 
 const isNestedList = (selectedElement: SugarElement): boolean => {
-  return PredicateFilter.ancestors(
+  return PredicateExists.ancestor(
     selectedElement,
     isListNode
-  ).length > 1;
+  );
 };
 
-const matchNodeNames = (regex: RegExp) =>
+const matchNodeNames = (elementNames: string[]) =>
   (node: SugarElement<Node> | null) => {
-    return regex.test(node.dom.nodeName)
+    return Arr.contains(elementNames, node.dom.nodeName);
   };
 
-const isListNode = matchNodeNames(/^(OL|UL|DL)$/);
-const isListItemNode = matchNodeNames(/^(LI)$/);
+const isListNode = matchNodeNames(["OL", "UL"]);
+const isListItemNode = matchNodeNames(["LI"]);
 
 export {
   isNestedList,
