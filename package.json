@@ -15,7 +15,10 @@
   "devDependencies": {
     "@ephox/agar": "latest",
     "@ephox/bedrock-server": "latest",
+    "@ephox/bridge": "^4.0.4",
+    "@ephox/katamari": "^9.0.3",
     "@ephox/mcagar": "latest",
+    "@ephox/sugar": "^9.0.3",
     "@ephox/swag": "latest",
     "@types/mocha": "^8.0.0",
     "@typescript-eslint/eslint-plugin": "^4.13.0",
