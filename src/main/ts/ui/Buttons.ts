@@ -50,6 +50,7 @@ const register = (editor: Editor): void => {
   editor.ui.registry.addSplitButton('enhanced-list-ordered-list', {
     icon: 'ordered-list',
     tooltip: 'Enhanced ordered list',
+    presets: 'listpreview',
     columns: 3,
     fetch: (callback) => {
       const items : ToolbarSplitButtonItemTypes[] = [{
